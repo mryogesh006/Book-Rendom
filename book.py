@@ -1,15 +1,20 @@
-
 from flask import Flask, request
 import requests
+import os
 
 app = Flask(__name__)
+
 API_URL = "https://api.freeapi.app/api/v1/public/books?limit=210"
 
 
 def get_books_payload():
-    response = requests.get(API_URL, timeout=20)
-    response.raise_for_status()
-    return response.json() or {}
+    try:
+        response = requests.get(API_URL, timeout=10)
+        response.raise_for_status()
+        return response.json() or {}
+    except requests.exceptions.RequestException as e:
+        print("API Error:", e)
+        return {}
 
 
 def normalize_book(book_item):
@@ -31,7 +36,7 @@ def get_index(total_books):
     requested_index = request.args.get("i", "0")
     try:
         return int(requested_index) % total_books
-    except ValueError:
+    except:
         return 0
 
 
@@ -47,19 +52,26 @@ def render_book_card(book, current_index, total_books):
     </div>
     """
 
-@app.route('/')
+
+@app.route("/")
 def home():
     try:
         books = fetch_all_books()
+
         if not books:
-            return "No books found"
+            return "<h2>No books found or API failed</h2>"
 
         current_index = get_index(len(books))
         selected_book = books[current_index]
+
         return render_book_card(selected_book, current_index, len(books))
 
     except Exception as e:
-        return f"Error: {e}", 500
+        print("Server Error:", e)
+        return f"<h2>Error: {e}</h2>", 500
 
+
+# IMPORTANT for Render deployment
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
